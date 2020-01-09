@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29418.71
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RyuCsharp", "RyuCsharp\RyuCsharp.csproj", "{BF9D8C01-1F34-49F8-B0BE-0A88B0193266}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RyuCsharpTest", "RyuCsharpTest\RyuCsharpTest.csproj", "{56A4475F-7C25-441A-A18F-52B44D7F7201}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BF9D8C01-1F34-49F8-B0BE-0A88B0193266}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF9D8C01-1F34-49F8-B0BE-0A88B0193266}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF9D8C01-1F34-49F8-B0BE-0A88B0193266}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF9D8C01-1F34-49F8-B0BE-0A88B0193266}.Release|Any CPU.Build.0 = Release|Any CPU
+		{56A4475F-7C25-441A-A18F-52B44D7F7201}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56A4475F-7C25-441A-A18F-52B44D7F7201}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{56A4475F-7C25-441A-A18F-52B44D7F7201}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56A4475F-7C25-441A-A18F-52B44D7F7201}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C07085A4-EB67-4FB6-9C87-93FBC7604744}
+	EndGlobalSection
+EndGlobal
