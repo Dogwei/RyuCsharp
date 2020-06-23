@@ -41,7 +41,7 @@ namespace RyuCsharp
         {
             // We don't need to handle the case dist >= 64 here (see above).
             assert(dist < 64);
-            assert(dist > 0);
+            if (dist == 0) return lo;
             return (hi << (int)(64 - dist)) | (lo >> (int)dist);
         }
 
