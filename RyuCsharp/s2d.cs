@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 using uint8_t = System.Byte;
 using int32_t = System.Int32;
@@ -13,7 +15,7 @@ using static RyuCsharp.Status;
 
 namespace RyuCsharp
 {
-    unsafe partial class Ryu
+    partial class Ryu
     {
         const int DOUBLE_EXPONENT_BIAS = 1023;
 #if _MSC_VER
@@ -31,21 +33,11 @@ namespace RyuCsharp
 
 #endif
 
-        // The max function is already defined on Windows.
-        static int32_t max32(int32_t a, int32_t b)
-        {
-            return a < b ? b : a;
-        }
-
-        static double int64Bits2Double(uint64_t bits)
-        {
-            return *(double*)&bits;
-        }
-
-        public static Status s2d_n(char* buffer, int len, double* result)
+        public static Status s2d_n(ReadOnlySpan<char> buffer, int len, out double result)
         {
             if (len == 0)
             {
+                result = default;
                 return INPUT_TOO_SHORT;
             }
             int m10digits = 0;
@@ -69,6 +61,7 @@ namespace RyuCsharp
                 {
                     if (dotIndex != len)
                     {
+                        result = default;
                         return MALFORMED_INPUT;
                     }
                     dotIndex = i;
@@ -80,6 +73,7 @@ namespace RyuCsharp
                 }
                 if (m10digits >= 17)
                 {
+                    result = default;
                     return INPUT_TOO_LONG;
                 }
                 m10 = 10 * m10 + (char)(c - '0');
@@ -102,10 +96,12 @@ namespace RyuCsharp
                     char c = buffer[i];
                     if ((c < '0') || (c > '9'))
                     {
+                        result = default;
                         return MALFORMED_INPUT;
                     }
                     if (e10digits > 3)
                     {
+                        result = default;
                         // TODO: Be more lenient. Return +/-Infinity or +/-0 instead.
                         return INPUT_TOO_LONG;
                     }
@@ -118,6 +114,7 @@ namespace RyuCsharp
             }
             if (i < len)
             {
+                result = default;
                 return MALFORMED_INPUT;
             }
             if (signedE)
@@ -127,7 +124,7 @@ namespace RyuCsharp
             e10 -= dotIndex < eIndex ? eIndex - dotIndex - 1 : 0;
             if (m10 == 0)
             {
-                *result = signedM ? -0.0 : 0.0;
+                result = signedM ? -0.0 : 0.0;
                 return SUCCESS;
             }
 
@@ -136,14 +133,14 @@ namespace RyuCsharp
             {
                 // Number is less than 1e-324, which should be rounded down to 0; return +/-0.0.
                 uint64_t ieee = ((uint64_t)(signedM ? 1 : 0)) << (DOUBLE_EXPONENT_BITS + DOUBLE_MANTISSA_BITS);
-                *result = int64Bits2Double(ieee);
+                result = BitConverter.Int64BitsToDouble((int64_t)ieee);
                 return SUCCESS;
             }
             if (m10digits + e10 >= 310)
             {
                 // Number is larger than 1e+309, which should be rounded down to 0; return +/-Infinity.
                 uint64_t ieee = (((uint64_t)(signedM ? 1 : 0)) << (DOUBLE_EXPONENT_BITS + DOUBLE_MANTISSA_BITS)) | (0x7fful << DOUBLE_MANTISSA_BITS);
-                *result = int64Bits2Double(ieee);
+                result = BitConverter.Int64BitsToDouble((int64_t)ieee);
                 return SUCCESS;
             }
 
@@ -168,9 +165,9 @@ namespace RyuCsharp
                 // We now compute [m10 * 10^e10 / 2^e2] = [m10 * 5^e10 / 2^(e2-e10)].
                 // To that end, we use the DOUBLE_POW5_SPLIT table.
                 int j = e2 - e10 - ceil_log2pow5(e10) + DOUBLE_POW5_BITCOUNT;
-                assert(j >= 0);
-                assert(e10 < DOUBLE_POW5_TABLE_SIZE);
-                m2 = mulShift64(m10, DOUBLE_POW5_SPLIT[(uint)e10], j);
+                Debug.Assert(j >= 0);
+                Debug.Assert(e10 < DOUBLE_POW5_TABLE_SIZE);
+                m2 = mulShift64(m10, DOUBLE_POW5_SPLIT[e10], j);
 
                 // We also compute if the result is exact, i.e.,
                 //   [m10 * 10^e10 / 2^e2] == m10 * 10^e10 / 2^e2.
@@ -183,20 +180,20 @@ namespace RyuCsharp
             {
                 e2 = (int32_t)(floor_log2(m10) + e10 - ceil_log2pow5(-e10) - (DOUBLE_MANTISSA_BITS + 1));
                 int j = e2 - e10 + ceil_log2pow5(-e10) - 1 + DOUBLE_POW5_INV_BITCOUNT;
-                assert(-e10 < DOUBLE_POW5_INV_TABLE_SIZE);
-                m2 = mulShift64(m10, DOUBLE_POW5_INV_SPLIT[(uint)(-e10)], j);
+                Debug.Assert(-e10 < DOUBLE_POW5_INV_TABLE_SIZE);
+                m2 = mulShift64(m10, DOUBLE_POW5_INV_SPLIT[-e10], j);
                 trailingZeros = multipleOfPowerOf5(m10, (uint)(-e10));
             }
 
 
             // Compute the final IEEE exponent.
-            uint32_t ieee_e2 = (uint32_t)max32(0, (int32_t)(e2 + DOUBLE_EXPONENT_BIAS + floor_log2(m2)));
+            uint32_t ieee_e2 = (uint32_t)Math.Max(0, (int32_t)(e2 + DOUBLE_EXPONENT_BIAS + floor_log2(m2)));
 
             if (ieee_e2 > 0x7fe)
             {
                 // Final IEEE exponent is larger than the maximum representable; return +/-Infinity.
                 uint64_t ieee = (((uint64_t)(signedM ? 1 : 0)) << (DOUBLE_EXPONENT_BITS + DOUBLE_MANTISSA_BITS)) | (0x7fful << DOUBLE_MANTISSA_BITS);
-                *result = int64Bits2Double(ieee);
+                result = BitConverter.Int64BitsToDouble((int64_t)ieee);
                 return SUCCESS;
             }
 
@@ -204,7 +201,7 @@ namespace RyuCsharp
             // the final IEEE exponent into account, so we need to reverse the bias and also special-case
             // the value 0.
             int32_t shift = (int32_t)((ieee_e2 == 0 ? 1 : ieee_e2) - e2 - DOUBLE_EXPONENT_BIAS - DOUBLE_MANTISSA_BITS);
-            assert(shift >= 0);
+            Debug.Assert(shift >= 0);
 
 
             // We need to round up if the exact value is more than 0.5 above the value we computed. That's
@@ -224,14 +221,14 @@ namespace RyuCsharp
                 ieee_e2++;
             }
             ieee_m2 &= (1ul << DOUBLE_MANTISSA_BITS) - 1;
-            uint64_t ieee2 = (((((uint64_t)(signedM ? 1 : 0)) << DOUBLE_EXPONENT_BITS) | (uint64_t)ieee_e2) << DOUBLE_MANTISSA_BITS) | ieee_m2;
-            *result = int64Bits2Double(ieee2);
+            uint64_t ieee2 = (((((uint64_t)(signedM ? 1 : 0)) << DOUBLE_EXPONENT_BITS) | ieee_e2) << DOUBLE_MANTISSA_BITS) | ieee_m2;
+            result = BitConverter.Int64BitsToDouble((int64_t)ieee2);
             return SUCCESS;
         }
 
-        static Status s2d(char* buffer, double* result)
+        public static Status s2d(ReadOnlySpan<char> buffer, out double result)
         {
-            return s2d_n(buffer, strlen(buffer), result);
+            return s2d_n(buffer, buffer.IndexOf('\0'), out result);
         }
     }
 }

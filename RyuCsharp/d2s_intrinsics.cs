@@ -1,13 +1,14 @@
-﻿using int32_t = System.Int32;
+﻿using System.Diagnostics;
+using int32_t = System.Int32;
 using uint32_t = System.UInt32;
 using int64_t = System.Int64;
 using uint64_t = System.UInt64;
 
 namespace RyuCsharp
 {
-    unsafe partial class Ryu
+    partial class Ryu
     {
-        static uint64_t umul128(uint64_t a, uint64_t b, uint64_t* productHi)
+        static uint64_t umul128(uint64_t a, uint64_t b, out uint64_t productHi)
         {
             // The casts here help MSVC to avoid calls to the __allmul library function.
             uint32_t aLo = (uint32_t)a;
@@ -34,14 +35,14 @@ namespace RyuCsharp
             uint64_t pHi = b11 + mid1Hi + mid2Hi;
             uint64_t pLo = ((uint64_t)mid2Lo << 32) | b00Lo;
 
-            *productHi = pHi;
+            productHi = pHi;
             return pLo;
         }
         static uint64_t shiftright128(uint64_t lo, uint64_t hi, uint32_t dist)
         {
             // We don't need to handle the case dist >= 64 here (see above).
-            assert(dist < 64);
-            assert(dist > 0);
+            Debug.Assert(dist < 64);
+            Debug.Assert(dist > 0);
             return (hi << (int)(64 - dist)) | (lo >> (int)dist);
         }
 
@@ -80,7 +81,7 @@ namespace RyuCsharp
             uint32_t count = 0;
             for (; ; )
             {
-                assert(value != 0);
+                Debug.Assert(value != 0);
                 uint64_t q = div5(value);
                 uint32_t r = ((uint32_t)value) - 5 * ((uint32_t)q);
                 if (r != 0)
@@ -103,7 +104,7 @@ namespace RyuCsharp
         // Returns true if value is divisible by 2^p.
         static bool multipleOfPowerOf2(uint64_t value, uint32_t p)
         {
-            assert(value != 0);
+            Debug.Assert(value != 0);
             // __builtin_ctzll doesn't appear to be faster here.
             return (value & ((1ul << (int)p) - 1)) == 0;
         }
@@ -145,13 +146,13 @@ namespace RyuCsharp
         //    c. Split only the first factor into 31-bit pieces, which also guarantees
         //       no internal overflow, but requires extra work since the intermediate
         //       results are not perfectly aligned.
-        static uint64_t mulShift64(uint64_t m, uint64_t* mul, int32_t j)
+        static uint64_t mulShift64(uint64_t m, (uint64_t offst0, uint64_t offset1) mul, int32_t j)
         {
             // m is maximum 55 bits
             uint64_t high1;                                   // 128
-            uint64_t low1 = umul128(m, mul[1], &high1); // 64
+            uint64_t low1 = umul128(m, mul.offset1, out high1); // 64
             uint64_t high0;                                   // 64
-            umul128(m, mul[0], &high0);                       // 0
+            uint64_t _ = umul128(m, mul.offst0, out high0);                       // 0
             uint64_t sum = high0 + low1;
             if (sum < high0)
             {
@@ -161,32 +162,30 @@ namespace RyuCsharp
         }
 
         // This is faster if we don't have a 64x64->128-bit multiplication.
-        static uint64_t mulShiftAll64(uint64_t m, uint64_t* mul, int32_t j,
-          uint64_t* vp, uint64_t* vm, uint32_t mmShift)
+        static uint64_t mulShiftAll64(uint64_t m, (uint64_t offset0, uint64_t offset1) mul, int32_t j,
+          out uint64_t vp, out uint64_t vm, uint32_t mmShift)
         {
             m <<= 1;
             // m is maximum 55 bits
-            uint64_t tmp;
-            uint64_t lo = umul128(m, mul[0], &tmp);
-            uint64_t hi;
-            uint64_t mid = tmp + umul128(m, mul[1], &hi);
+            uint64_t lo = umul128(m, mul.offset0, out uint64_t tmp);
+            uint64_t mid = tmp + umul128(m, mul.offset1, out uint64_t hi);
             if (mid < tmp) ++hi;// overflow into hi
 
-            uint64_t lo2 = lo + mul[0];
-            uint64_t mid2 = mid + mul[1];
+            uint64_t lo2 = lo + mul.offset0;
+            uint64_t mid2 = mid + mul.offset1;
             if (lo2 < lo) ++mid2;
             uint64_t hi2 = hi;
             if (mid2 < mid) ++hi2;
-            *vp = shiftright128(mid2, hi2, (uint32_t)(j - 64 - 1));
+            vp = shiftright128(mid2, hi2, (uint32_t)(j - 64 - 1));
 
             if (mmShift == 1)
             {
-                uint64_t lo3 = lo - mul[0];
-                uint64_t mid3 = mid - mul[1];
+                uint64_t lo3 = lo - mul.offset0;
+                uint64_t mid3 = mid - mul.offset1;
                 if (lo3 > lo) --mid3;
                 uint64_t hi3 = hi;
                 if (mid3 > mid) --hi3;
-                *vm = shiftright128(mid3, hi3, (uint32_t)(j - 64 - 1));
+                vm = shiftright128(mid3, hi3, (uint32_t)(j - 64 - 1));
             }
             else
             {
@@ -195,12 +194,12 @@ namespace RyuCsharp
                 if (lo3 < lo) ++mid3;
                 uint64_t hi3 = hi + hi;
                 if (mid3 < mid) ++hi3;
-                uint64_t lo4 = lo3 - mul[0];
-                uint64_t mid4 = mid3 - mul[1];
+                uint64_t lo4 = lo3 - mul.offset0;
+                uint64_t mid4 = mid3 - mul.offset1;
                 if (lo4 > lo3) --mid4;
                 uint64_t hi4 = hi3;
                 if (mid4 > mid3) --hi4;
-                *vm = shiftright128(mid4, hi4, (uint32_t)(j - 64));
+                vm = shiftright128(mid4, hi4, (uint32_t)(j - 64));
             }
 
             return shiftright128(mid, hi, (uint32_t)(j - 64 - 1));

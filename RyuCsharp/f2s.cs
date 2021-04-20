@@ -1,11 +1,13 @@
-﻿using int32_t = System.Int32;
+﻿using System;
+using System.Diagnostics;
+using int32_t = System.Int32;
 using uint32_t = System.UInt32;
 using uint64_t = System.UInt64;
 using uint8_t = System.Byte;
 
 namespace RyuCsharp
 {
-    unsafe partial class Ryu
+    partial class Ryu
     {
         const int FLOAT_MANTISSA_BITS = 23;
         const int FLOAT_EXPONENT_BITS = 8;
@@ -16,7 +18,7 @@ namespace RyuCsharp
             uint32_t count = 0;
             for (; ; )
             {
-                assert(value != 0);
+                Debug.Assert(value != 0);
                 uint32_t q = value / 5;
                 uint32_t r = value % 5;
                 if (r != 0)
@@ -30,23 +32,23 @@ namespace RyuCsharp
         }
 
         // Returns true if value is divisible by 5^p.
-        static bool multipleOfPowerOf5_32(uint32_t value, uint32_t p)
+        static bool multipleOfPowerOf5_32(uint32_t value, int32_t p)
         {
             return pow5factor_32(value) >= p;
         }
 
         // Returns true if value is divisible by 2^p.
-        static bool multipleOfPowerOf2_32(uint32_t value, uint32_t p)
+        static bool multipleOfPowerOf2_32(uint32_t value, int32_t p)
         {
             // __builtin_ctz doesn't appear to be faster here.
-            return (value & ((1u << (int)p) - 1)) == 0;
+            return (value & ((1u << p) - 1)) == 0;
         }
 
         // It seems to be slightly faster to avoid uint128_t here, although the
         // generated code for uint128_t looks slightly nicer.
         static uint32_t mulShift32(uint32_t m, uint64_t factor, int32_t shift)
         {
-            assert(shift > 32);
+            Debug.Assert(shift > 32);
 
             // The casts here help MSVC to avoid calls to the __allmul library
             // function.
@@ -57,16 +59,16 @@ namespace RyuCsharp
 
             uint64_t sum = (bits0 >> 32) + bits1;
             uint64_t shiftedSum = sum >> (shift - 32);
-            assert(shiftedSum <= /*UINT32_MAX*/uint32_t.MaxValue);
+            Debug.Assert(shiftedSum <= /*UINT32_MAX*/uint32_t.MaxValue);
             return (uint32_t)shiftedSum;
         }
 
-        static uint32_t mulPow5InvDivPow2(uint32_t m, uint32_t q, int32_t j)
+        static uint32_t mulPow5InvDivPow2(uint32_t m, int32_t q, int32_t j)
         {
             return mulShift32(m, FLOAT_POW5_INV_SPLIT[q], j);
         }
 
-        static uint32_t mulPow5divPow2(uint32_t m, uint32_t i, int32_t j)
+        static uint32_t mulPow5divPow2(uint32_t m, int32_t i, int32_t j)
         {
             return mulShift32(m, FLOAT_POW5_SPLIT[i], j);
         }
@@ -93,7 +95,7 @@ namespace RyuCsharp
             // Step 2: Determine the interval of valid decimal representations.
             uint32_t mv = 4 * m2;
             uint32_t mp = 4 * m2 + 2;
-            // Implicit bool -> int conversion. True is 1, false is 0.
+            // Implicit bool -> int32_t conversion. True is 1, false is 0.
             uint32_t mmShift = (ieeeMantissa != 0 || ieeeExponent <= 1) ? 1U : 0;
             uint32_t mm = 4 * m2 - 1 - mmShift;
 
@@ -105,10 +107,10 @@ namespace RyuCsharp
             uint8_t lastRemovedDigit = 0;
             if (e2 >= 0)
             {
-                uint32_t q = log10Pow2(e2);
-                e10 = (int32_t)q;
-                int32_t k = FLOAT_POW5_INV_BITCOUNT + pow5bits((int32_t)q) - 1;
-                int32_t i = -e2 + (int32_t)q + k;
+                int32_t q = (int32_t)log10Pow2(e2);
+                e10 = q;
+                int32_t k = FLOAT_POW5_INV_BITCOUNT + pow5bits(q) - 1;
+                int32_t i = -e2 + q + k;
                 vr = mulPow5InvDivPow2(mv, q, i);
                 vp = mulPow5InvDivPow2(mp, q, i);
                 vm = mulPow5InvDivPow2(mm, q, i);
@@ -118,8 +120,8 @@ namespace RyuCsharp
                     // We need to know one removed digit even if we are not going to loop below. We could use
                     // q = X - 1 above, except that would require 33 bits for the result, and we've found that
                     // 32-bit arithmetic is faster even on 64-bit machines.
-                    int32_t l = FLOAT_POW5_INV_BITCOUNT + pow5bits((int32_t)(q - 1)) - 1;
-                    lastRemovedDigit = (uint8_t)(mulPow5InvDivPow2(mv, q - 1, -e2 + (int32_t)q - 1 + l) % 10);
+                    int32_t l = FLOAT_POW5_INV_BITCOUNT + pow5bits(q - 1) - 1;
+                    lastRemovedDigit = (uint8_t)(mulPow5InvDivPow2(mv, q - 1, -e2 + q - 1 + l) % 10);
                 }
                 if (q <= 9)
                 {
@@ -141,19 +143,19 @@ namespace RyuCsharp
             }
             else
             {
-                uint32_t q = log10Pow5(-e2);
-                e10 = (int32_t)q + e2;
-                int32_t i = -e2 - (int32_t)q;
+                int32_t q = (int32_t)log10Pow5(-e2);
+                e10 = q + e2;
+                int32_t i = -e2 - q;
                 int32_t k = pow5bits(i) - FLOAT_POW5_BITCOUNT;
-                int32_t j = (int32_t)q - k;
-                vr = mulPow5divPow2(mv, (uint32_t)i, j);
-                vp = mulPow5divPow2(mp, (uint32_t)i, j);
-                vm = mulPow5divPow2(mm, (uint32_t)i, j);
+                int32_t j = q - k;
+                vr = mulPow5divPow2(mv, i, j);
+                vp = mulPow5divPow2(mp, i, j);
+                vm = mulPow5divPow2(mm, i, j);
 
                 if (q != 0 && (vp - 1) / 10 <= vm / 10)
                 {
-                    j = (int32_t)q - 1 - (pow5bits(i + 1) - FLOAT_POW5_BITCOUNT);
-                    lastRemovedDigit = (uint8_t)(mulPow5divPow2(mv, (uint32_t)(i + 1), j) % 10);
+                    j = q - 1 - (pow5bits(i + 1) - FLOAT_POW5_BITCOUNT);
+                    lastRemovedDigit = (uint8_t)(mulPow5divPow2(mv, i + 1, j) % 10);
                 }
                 if (q <= 1)
                 {
@@ -244,15 +246,15 @@ namespace RyuCsharp
             }
             int32_t exp = e10 + removed;
 
-
-
-            floating_decimal_32 fd = default;
-            fd.exponent = exp;
-            fd.mantissa = output;
+            floating_decimal_32 fd = new floating_decimal_32
+            {
+                exponent = exp,
+                mantissa = output,
+            };
             return fd;
         }
 
-        static int to_chars(floating_decimal_32 v, bool sign, char* result)
+        static int to_chars(floating_decimal_32 v, bool sign, Span<char> result)
         {
             // Step 5: Print the decimal representation.
             int index = 0;
@@ -262,7 +264,7 @@ namespace RyuCsharp
             }
 
             uint32_t output = v.mantissa;
-            uint32_t olength = decimalLength9(output);
+            int32_t olength = decimalLength9(output);
 
 
             // Print the decimal digits.
@@ -272,7 +274,7 @@ namespace RyuCsharp
             //   result[index + olength - i] = (char) ('0' + c);
             // }
             // result[index] = '0' + output % 10;
-            uint32_t i = 0;
+            int32_t i = 0;
             while (output >= 10000)
             {
 #if __clang__ // https://bugs.llvm.org/show_bug.cgi?id=38217
@@ -281,24 +283,25 @@ namespace RyuCsharp
                 uint32_t c = output % 10000;
 #endif
                 output /= 10000;
+
                 uint32_t c0 = (c % 100) << 1;
                 uint32_t c1 = (c / 100) << 1;
-                memcpy(result + index + olength - i - 1, DIGIT_TABLE + c0, 2);
-                memcpy(result + index + olength - i - 3, DIGIT_TABLE + c1, 2);
+                DIGIT_TABLE.AsSpan((int32_t)c0, 2).CopyTo(result.Slice(index + olength - i - 1));
+                DIGIT_TABLE.AsSpan((int32_t)c1, 2).CopyTo(result.Slice(index + olength - i - 3));
                 i += 4;
             }
             if (output >= 100)
             {
                 uint32_t c = (output % 100) << 1;
                 output /= 100;
-                memcpy(result + index + olength - i - 1, DIGIT_TABLE + c, 2);
+                DIGIT_TABLE.AsSpan((int32_t)c, 2).CopyTo(result.Slice(index + olength - i - 1));
                 i += 2;
             }
             if (output >= 10)
             {
                 uint32_t c = output << 1;
                 // We can't use memcpy here: the decimal dot goes between these two digits.
-                result[index + olength - i] = DIGIT_TABLE[c + 1];
+                result[(int32_t)((uint32_t)index + olength - i)] = DIGIT_TABLE[c + 1];
                 result[index] = DIGIT_TABLE[c];
             }
             else
@@ -310,7 +313,7 @@ namespace RyuCsharp
             if (olength > 1)
             {
                 result[index + 1] = '.';
-                index += (int)olength + 1;
+                index += olength + 1;
             }
             else
             {
@@ -319,7 +322,7 @@ namespace RyuCsharp
 
             // Print the exponent.
             result[index++] = 'E';
-            int32_t exp = v.exponent + (int32_t)olength - 1;
+            int32_t exp = v.exponent + olength - 1;
             if (exp < 0)
             {
                 result[index++] = '-';
@@ -328,7 +331,7 @@ namespace RyuCsharp
 
             if (exp >= 10)
             {
-                memcpy(result + index, DIGIT_TABLE + (uint)(2 * exp), 2);
+                DIGIT_TABLE.AsSpan(2 * exp, 2).CopyTo(result.Slice(index));
                 index += 2;
             }
             else
@@ -339,7 +342,7 @@ namespace RyuCsharp
             return index;
         }
 
-        public static int f2s_buffered_n(float f, char* result)
+        public static int f2s_buffered_n(float f, Span<char> result)
         {
             // Step 1: Decode the floating-point number, and unify normalized and subnormal cases.
             uint32_t bits = float_to_bits(f);
@@ -361,12 +364,12 @@ namespace RyuCsharp
             return to_chars(v, ieeeSign, result);
         }
 
-        public static void f2s_buffered(float f, char* result)
+        public static Span<char> f2s_buffered(float f, Span<char> result)
         {
             int index = f2s_buffered_n(f, result);
 
             // Terminate the string.
-            result[index] = '\0';
+            return result.Slice(0, index);
         }
 
     }

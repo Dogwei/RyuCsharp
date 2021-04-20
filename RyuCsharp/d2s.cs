@@ -1,4 +1,6 @@
-﻿using uint8_t = System.Byte;
+﻿using System.Diagnostics;
+using System;
+using uint8_t = System.Byte;
 using int32_t = System.Int32;
 using uint32_t = System.UInt32;
 using int64_t = System.Int64;
@@ -6,15 +8,15 @@ using uint64_t = System.UInt64;
 
 namespace RyuCsharp
 {
-    unsafe partial class Ryu
+    partial class Ryu
     {
-        static uint32_t decimalLength17(uint64_t v)
+        static int32_t decimalLength17(uint64_t v)
         {
             // This is slightly faster than a loop.
             // The average output length is 16.38 digits, so we check high-to-low.
             // Function precondition: v is not an 18, 19, or 20-digit number.
             // (17 digits are sufficient for round-tripping.)
-            assert(v < 100000000000000000L);
+            Debug.Assert(v < 100000000000000000L);
             if (v >= 10000000000000000L) { return 17; }
             if (v >= 1000000000000000L) { return 16; }
             if (v >= 100000000000000L) { return 15; }
@@ -55,7 +57,7 @@ namespace RyuCsharp
 
             // Step 2: Determine the interval of valid decimal representations.
             uint64_t mv = 4 * m2;
-            // Implicit bool -> int conversion. True is 1, false is 0.
+            // Implicit bool -> int32_t conversion. True is 1, false is 0.
             uint32_t mmShift = (ieeeMantissa != 0 || ieeeExponent <= 1) ? 1U : 0;
             // We would compute mp and mm like this:
             // uint64_t mp = 4 * m2 + 2;
@@ -76,7 +78,7 @@ namespace RyuCsharp
                 int32_t k = DOUBLE_POW5_INV_BITCOUNT + pow5bits((int32_t)q) - 1;
                 int32_t i = -e2 + (int32_t)q + k;
 
-                vr = mulShiftAll64(m2, DOUBLE_POW5_INV_SPLIT[q], i, &vp, &vm, mmShift);
+                vr = mulShiftAll64(m2, DOUBLE_POW5_INV_SPLIT[q], i, out vp, out vm, mmShift);
 
                 if (q <= 21)
                 {
@@ -111,7 +113,7 @@ namespace RyuCsharp
                 int32_t i = -e2 - (int32_t)q;
                 int32_t k = pow5bits(i) - DOUBLE_POW5_BITCOUNT;
                 int32_t j = (int32_t)q - k;
-                vr = mulShiftAll64(m2, DOUBLE_POW5_SPLIT[(uint)i], j, &vp, &vm, mmShift);
+                vr = mulShiftAll64(m2, DOUBLE_POW5_SPLIT[i], j, out vp, out vm, mmShift);
                 if (q <= 1)
                 {
                     // {vr,vp,vm} is trailing zeros if {mv,mp,mm} has at least q trailing 0 bits.
@@ -171,14 +173,14 @@ namespace RyuCsharp
                     for (; ; )
                     {
                         uint64_t vmDiv10 = div10(vm);
-                        uint32_t vmMod10 = ((uint32_t)vm) - 10 * ((uint32_t)vmDiv10);
+                        uint32_t vmMod10 = ((uint32_t)vm) - (10 * ((uint32_t)vmDiv10));
                         if (vmMod10 != 0)
                         {
                             break;
                         }
                         uint64_t vpDiv10 = div10(vp);
                         uint64_t vrDiv10 = div10(vr);
-                        uint32_t vrMod10 = ((uint32_t)vr) - 10 * ((uint32_t)vrDiv10);
+                        uint32_t vrMod10 = ((uint32_t)vr) - (10 * ((uint32_t)vrDiv10));
                         vrIsTrailingZeros &= lastRemovedDigit == 0;
                         lastRemovedDigit = (uint8_t)vrMod10;
                         vr = vrDiv10;
@@ -205,7 +207,7 @@ namespace RyuCsharp
                 if (vpDiv100 > vmDiv100)
                 { // Optimization: remove two digits at a time (~86.2%).
                     uint64_t vrDiv100 = div100(vr);
-                    uint32_t vrMod100 = ((uint32_t)vr) - 100 * ((uint32_t)vrDiv100);
+                    uint32_t vrMod100 = ((uint32_t)vr) - (100 * ((uint32_t)vrDiv100));
                     roundUp = vrMod100 >= 50;
                     vr = vrDiv100;
                     vp = vpDiv100;
@@ -225,7 +227,7 @@ namespace RyuCsharp
                         break;
                     }
                     uint64_t vrDiv10 = div10(vr);
-                    uint32_t vrMod10 = ((uint32_t)vr) - 10 * ((uint32_t)vrDiv10);
+                    uint32_t vrMod10 = ((uint32_t)vr) - (10 * ((uint32_t)vrDiv10));
                     roundUp = vrMod10 >= 5;
                     vr = vrDiv10;
                     vp = vpDiv10;
@@ -239,15 +241,15 @@ namespace RyuCsharp
             }
             int32_t exp = e10 + removed;
 
-
-
-            floating_decimal_64 fd = default;
-            fd.exponent = exp;
-            fd.mantissa = output;
+            floating_decimal_64 fd = new floating_decimal_64
+            {
+                exponent = exp,
+                mantissa = output,
+            };
             return fd;
         }
 
-        static int to_chars(floating_decimal_64 v, bool sign, char* result)
+        static int to_chars(floating_decimal_64 v, bool sign, Span<char> result)
         {
             // Step 5: Print the decimal representation.
             int index = 0;
@@ -257,7 +259,7 @@ namespace RyuCsharp
             }
 
             uint64_t output = v.mantissa;
-            uint32_t olength = decimalLength17(output);
+            int32_t olength = decimalLength17(output);
 
 
             // Print the decimal digits.
@@ -268,7 +270,7 @@ namespace RyuCsharp
             // }
             // result[index] = '0' + output % 10;
 
-            uint32_t i = 0;
+            int32_t i = 0;
             // We prefer 32-bit operations, even on 64-bit platforms.
             // We have at most 17 digits, and uint32_t can store 9 digits.
             // If output doesn't fit into uint32_t, we cut off 8 digits,
@@ -277,20 +279,20 @@ namespace RyuCsharp
             {
                 // Expensive 64-bit division.
                 uint64_t q = div1e8(output);
-                uint32_t output3 = ((uint32_t)output) - 100000000 * ((uint32_t)q);
+                uint32_t output3 = ((uint32_t)output) - (100000000 * ((uint32_t)q));
                 output = q;
 
-                uint32_t c = output3 % 10000;
+                int32_t c = (int32_t)(output3 % 10000);
                 output3 /= 10000;
-                uint32_t d = output3 % 10000;
-                uint32_t c0 = (c % 100) << 1;
-                uint32_t c1 = (c / 100) << 1;
-                uint32_t d0 = (d % 100) << 1;
-                uint32_t d1 = (d / 100) << 1;
-                memcpy(result + index + olength - i - 1, DIGIT_TABLE + c0, 2);
-                memcpy(result + index + olength - i - 3, DIGIT_TABLE + c1, 2);
-                memcpy(result + index + olength - i - 5, DIGIT_TABLE + d0, 2);
-                memcpy(result + index + olength - i - 7, DIGIT_TABLE + d1, 2);
+                int32_t d = (int32_t)(output3 % 10000);
+                int32_t c0 = (c % 100) << 1;
+                int32_t c1 = (c / 100) << 1;
+                int32_t d0 = (d % 100) << 1;
+                int32_t d1 = (d / 100) << 1;
+                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(index + olength - i - 1));
+                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(index + olength - i - 3));
+                DIGIT_TABLE.AsSpan(d0, 2).CopyTo(result.Slice(index + olength - i - 5));
+                DIGIT_TABLE.AsSpan(d1, 2).CopyTo(result.Slice(index + olength - i - 7));
                 i += 8;
             }
             uint32_t output2 = (uint32_t)output;
@@ -304,15 +306,15 @@ namespace RyuCsharp
                 output2 /= 10000;
                 uint32_t c0 = (c % 100) << 1;
                 uint32_t c1 = (c / 100) << 1;
-                memcpy(result + index + olength - i - 1, DIGIT_TABLE + c0, 2);
-                memcpy(result + index + olength - i - 3, DIGIT_TABLE + c1, 2);
+                DIGIT_TABLE.AsSpan((int32_t)c0, 2).CopyTo(result.Slice(index + olength - i - 1));
+                DIGIT_TABLE.AsSpan((int32_t)c1, 2).CopyTo(result.Slice(index + olength - i - 3));
                 i += 4;
             }
             if (output2 >= 100)
             {
-                uint32_t c = (output2 % 100) << 1;
+                int32_t c = (int32_t)((output2 % 100) << 1);
                 output2 /= 100;
-                memcpy(result + index + olength - i - 1, DIGIT_TABLE + c, 2);
+                DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(index + olength - i - 1));
                 i += 2;
             }
             if (output2 >= 10)
@@ -331,7 +333,7 @@ namespace RyuCsharp
             if (olength > 1)
             {
                 result[index + 1] = '.';
-                index += (int)olength + 1;
+                index += olength + 1;
             }
             else
             {
@@ -340,7 +342,7 @@ namespace RyuCsharp
 
             // Print the exponent.
             result[index++] = 'E';
-            int32_t exp = v.exponent + (int32_t)olength - 1;
+            int32_t exp = v.exponent + olength - 1;
             if (exp < 0)
             {
                 result[index++] = '-';
@@ -350,13 +352,13 @@ namespace RyuCsharp
             if (exp >= 100)
             {
                 int32_t c = exp % 10;
-                memcpy(result + index, DIGIT_TABLE + 2 * (uint)(exp / 10), 2);
+                DIGIT_TABLE.AsSpan(2 * (exp / 10), 2).CopyTo(result.Slice(index));
                 result[index + 2] = (char)('0' + c);
                 index += 3;
             }
             else if (exp >= 10)
             {
-                memcpy(result + index, DIGIT_TABLE + 2 * (uint)exp, 2);
+                DIGIT_TABLE.AsSpan(2 * exp, 2).CopyTo(result.Slice(index));
                 index += 2;
             }
             else
@@ -367,13 +369,17 @@ namespace RyuCsharp
             return index;
         }
 
-        static bool d2d_small_int(uint64_t ieeeMantissa, uint32_t ieeeExponent, floating_decimal_64* v)
+        static bool d2d_small_int(uint64_t ieeeMantissa, uint32_t ieeeExponent, out floating_decimal_64 v)
         {
+            if (ieeeMantissa >= (1ul << DOUBLE_MANTISSA_BITS))
+                throw new ArgumentOutOfRangeException(nameof(ieeeMantissa));
+
             uint64_t m2 = (1ul << DOUBLE_MANTISSA_BITS) | ieeeMantissa;
             int32_t e2 = (int32_t)ieeeExponent - DOUBLE_BIAS - DOUBLE_MANTISSA_BITS;
 
             if (e2 > 0)
             {
+                v = default;
                 // f = m2 * 2^e2 >= 2^53 is an integer.
                 // Ignore this case for now.
                 return false;
@@ -381,6 +387,7 @@ namespace RyuCsharp
 
             if (e2 < -52)
             {
+                v = default;
                 // f < 1.
                 return false;
             }
@@ -391,36 +398,29 @@ namespace RyuCsharp
             uint64_t fraction = m2 & mask;
             if (fraction != 0)
             {
+                v = default;
                 return false;
             }
 
             // f is an integer in the range [1, 2^53).
             // Note: mantissa might contain trailing (decimal) 0's.
             // Note: since 2^53 < 10^16, there is no need to adjust decimalLength17().
-            v->mantissa = m2 >> -e2;
-            v->exponent = 0;
+            v.mantissa = m2 >> -e2;
+            v.exponent = 0;
             return true;
         }
 
-        public static int d2s_buffered_n(double f, char* result)
+        public static int d2s_buffered_n(double f, Span<char> result)
         {
-            // Step 1: Decode the floating-point number, and unify normalized and subnormal cases.
-            uint64_t bits = double_to_bits(f);
+            (bool ieeeSign, uint64_t ieeeMantissa, uint32_t ieeeExponent) = Parse(f);
 
-
-
-            // Decode bits into sign, mantissa, and exponent.
-            bool ieeeSign = ((bits >> (DOUBLE_MANTISSA_BITS + DOUBLE_EXPONENT_BITS)) & 1) != 0;
-            uint64_t ieeeMantissa = bits & ((1ul << DOUBLE_MANTISSA_BITS) - 1);
-            uint32_t ieeeExponent = (uint32_t)((bits >> DOUBLE_MANTISSA_BITS) & ((1u << DOUBLE_EXPONENT_BITS) - 1));
             // Case distinction; exit early for the easy cases.
             if (ieeeExponent == ((1u << DOUBLE_EXPONENT_BITS) - 1u) || (ieeeExponent == 0 && ieeeMantissa == 0))
             {
                 return copy_special_str(result, ieeeSign, ieeeExponent != 0, ieeeMantissa != 0);
             }
 
-            floating_decimal_64 v;
-            bool isSmallInt = d2d_small_int(ieeeMantissa, ieeeExponent, &v);
+            bool isSmallInt = d2d_small_int(ieeeMantissa, ieeeExponent, out floating_decimal_64 v);
             if (isSmallInt)
             {
                 // For small integers in the range [1, 2^53), v.mantissa might contain trailing (decimal) zeros.
@@ -430,7 +430,7 @@ namespace RyuCsharp
                 for (; ; )
                 {
                     uint64_t q = div10(v.mantissa);
-                    uint32_t r = ((uint32_t)v.mantissa) - 10 * ((uint32_t)q);
+                    uint32_t r = ((uint32_t)v.mantissa) - (10 * ((uint32_t)q));
                     if (r != 0)
                     {
                         break;
@@ -447,12 +447,12 @@ namespace RyuCsharp
             return to_chars(v, ieeeSign, result);
         }
 
-        public static void d2s_buffered(double f, char* result)
+        public static Span<char> d2s_buffered(double f, Span<char> result)
         {
             int index = d2s_buffered_n(f, result);
 
             // Terminate the string.
-            result[index] = '\0';
+            return result.Slice(0, index);
         }
 
     }

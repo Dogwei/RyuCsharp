@@ -1,24 +1,26 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using int32_t = System.Int32;
 using uint32_t = System.UInt32;
 using uint64_t = System.UInt64;
 
 namespace RyuCsharp
 {
-    public static unsafe partial class Ryu
+    public static partial class Ryu
     {
         const int DOUBLE_MANTISSA_BITS = 52;
         const int DOUBLE_EXPONENT_BITS = 11;
         const int DOUBLE_BIAS = 1023;
 
         // Returns the number of decimal digits in v, which must not contain more than 9 digits.
-        static uint32_t decimalLength9(uint32_t v)
+        static int32_t decimalLength9(uint32_t v)
         {
             // Function precondition: v is not a 10-digit number.
             // (f2s: 9 digits are sufficient for round-tripping.)
             // (d2fixed: We print 9-digit blocks.)
-            assert(v < 1000000000);
+            Debug.Assert(v < 1000000000);
             if (v >= 100000000) { return 9; }
             if (v >= 10000000) { return 8; }
             if (v >= 1000000) { return 7; }
@@ -36,8 +38,8 @@ namespace RyuCsharp
             // This approximation works up to the point that the multiplication overflows at e = 3529.
             // If the multiplication were done in 64 bits, it would fail at 5^4004 which is just greater
             // than 2^9297.
-            assert(e >= 0);
-            assert(e <= 3528);
+            Debug.Assert(e >= 0);
+            Debug.Assert(e <= 3528);
             return (int32_t)((((uint32_t)e) * 1217359) >> 19);
         }
 
@@ -47,8 +49,8 @@ namespace RyuCsharp
             // This approximation works up to the point that the multiplication overflows at e = 3529.
             // If the multiplication were done in 64 bits, it would fail at 5^4004 which is just greater
             // than 2^9297.
-            assert(e >= 0);
-            assert(e <= 3528);
+            Debug.Assert(e >= 0);
+            Debug.Assert(e <= 3528);
             return (int32_t)(((((uint32_t)e) * 1217359) >> 19) + 1);
         }
 
@@ -62,8 +64,8 @@ namespace RyuCsharp
         static uint32_t log10Pow2(int32_t e)
         {
             // The first value this approximation fails for is 2^1651 which is just greater than 10^297.
-            assert(e >= 0);
-            assert(e <= 1650);
+            Debug.Assert(e >= 0);
+            Debug.Assert(e <= 1650);
             return (((uint32_t)e) * 78913) >> 18;
         }
 
@@ -71,12 +73,12 @@ namespace RyuCsharp
         static uint32_t log10Pow5(int32_t e)
         {
             // The first value this approximation fails for is 5^2621 which is just greater than 10^1832.
-            assert(e >= 0);
-            assert(e <= 2620);
+            Debug.Assert(e >= 0);
+            Debug.Assert(e <= 2620);
             return (((uint32_t)e) * 732923) >> 20;
         }
 
-        static int copy_special_str(char* result, bool sign, bool exponent, bool mantissa)
+        static int copy_special_str(Span<char> result, bool sign, bool exponent, bool mantissa)
         {
             int offset = 0;
 
@@ -115,38 +117,19 @@ namespace RyuCsharp
             return offset;
         }
 
+        [StructLayout(LayoutKind.Explicit)]
+        struct FloatBits
+        {
+            [FieldOffset(0)]
+            public float value;
+
+            [FieldOffset(0)]
+            public uint32_t bits;
+        }
+
         static uint32_t float_to_bits(float f)
         {
-            return *(uint32_t*)&f;
-        }
-
-        static uint64_t double_to_bits(double d)
-        {
-            return *(uint64_t*)&d;
-        }
-
-        static void memcpy(char* _Dst, char* _Src, uint32_t _Size)
-        {
-            Unsafe.CopyBlock(_Dst, _Src, _Size * sizeof(char));
-        }
-
-        static void memcpy(char* _Dst, string _Src, uint32_t _Size)
-        {
-            fixed (char* chars = _Src)
-                memcpy(_Dst, chars, _Size);
-        }
-
-        static void memset(char* _Dst, char _Val, uint32_t _Size )
-        {
-            for (int i = 0; i < _Size; i++)
-            {
-                _Dst[i] = _Val;
-            }
-        }
-
-        static int32_t strlen(char* str)
-        {
-            throw new NotSupportedException();
+            return new FloatBits { value = f }.bits;
         }
 
         static uint32_t __builtin_clzll(uint64_t value)
@@ -191,17 +174,5 @@ namespace RyuCsharp
 
             return r;
         }
-
-#if NDEBUG
-        static void assert(bool expression) { }
-#else
-        static void assert(bool expression)
-        {
-            if (!expression)
-            {
-                throw new AssertException();
-            }
-        }
-#endif
     }
 }

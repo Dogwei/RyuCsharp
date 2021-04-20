@@ -1,6 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Diagnostics;
+using System;
+using System.Runtime.CompilerServices;
+using System.Numerics;
+
 using uint8_t = System.Byte;
 using int32_t = System.Int32;
 using uint16_t = System.UInt16;
@@ -9,27 +11,25 @@ using int64_t = System.Int64;
 using uint64_t = System.UInt64;
 namespace RyuCsharp
 {
-    unsafe partial class Ryu
+    partial class Ryu
     {
         const int POW10_ADDITIONAL_BITS = 120;
 
         // Returns the low 64 bits of the high 128 bits of the 256-bit product of a and b.
-        static uint64_t umul256_hi128_lo64(
-   uint64_t aHi, uint64_t aLo, uint64_t bHi, uint64_t bLo) {
-            uint64_t b00Hi;
-            uint64_t b00Lo = umul128(aLo, bLo, &b00Hi);
-            uint64_t b01Hi;
-            uint64_t b01Lo = umul128(aLo, bHi, &b01Hi);
-            uint64_t b10Hi;
-            uint64_t b10Lo = umul128(aHi, bLo, &b10Hi);
-            uint64_t b11Hi;
-            uint64_t b11Lo = umul128(aHi, bHi, &b11Hi);
+        static uint64_t umul256_hi128_lo64(uint64_t aHi, uint64_t aLo, uint64_t bHi, uint64_t bLo)
+        {
+            uint64_t b00Lo = umul128(aLo, bLo, out uint64_t b00Hi);
+            uint64_t b01Lo = umul128(aLo, bHi, out uint64_t b01Hi);
+            uint64_t b10Lo = umul128(aHi, bLo, out uint64_t b10Hi);
+            uint64_t b11Lo = umul128(aHi, bHi, out uint64_t b11Hi);
             uint64_t temp1Lo = b10Lo + b00Hi;
             uint64_t temp1Hi = b10Hi;
-            if (temp1Lo < b10Lo) ++temp1Hi;
+            if (temp1Lo < b10Lo)
+                ++temp1Hi;
             uint64_t temp2Lo = b01Lo + temp1Lo;
             uint64_t temp2Hi = b01Hi;
-            if (temp2Lo < b01Lo) ++temp2Hi;
+            if (temp2Lo < b01Lo)
+                ++temp2Hi;
             return b11Lo + temp1Hi + temp2Hi;
         }
 
@@ -42,16 +42,17 @@ namespace RyuCsharp
             // For uint32_t truncation, see the mod1e9() comment in d2s_intrinsics.h.
             uint32_t shifted = (uint32_t)(multiplied >> 29);
 
-            return ((uint32_t)vLo) - 1000000000 * shifted;
+            return ((uint32_t)vLo) - 1000000000u * shifted;
         }
 
-        static uint32_t mulShift_mod1e9(uint64_t m, uint64_t* mul, int32_t j) {
+        static uint32_t mulShift_mod1e9(uint64_t m,in (uint64_t offset0, uint64_t offset1, uint64_t offset2) mul, int32_t j)
+        {
             uint64_t high0;                                   // 64
-            uint64_t low0 = umul128(m, mul[0], &high0); // 0
+            uint64_t low0 = umul128(m, mul.offset0, out high0); // 0
             uint64_t high1;                                   // 128
-            uint64_t low1 = umul128(m, mul[1], &high1); // 64
+            uint64_t low1 = umul128(m, mul.offset1, out high1); // 64
             uint64_t high2;                                   // 192
-            uint64_t low2 = umul128(m, mul[2], &high2); // 128
+            uint64_t low2 = umul128(m, mul.offset2, out high2); // 128
             uint64_t s0low = low0;              // 0
             uint64_t s0high = low1 + high0;     // 64
             uint32_t c1 = s0high < low1 ? 1U : 0;
@@ -59,43 +60,40 @@ namespace RyuCsharp
             uint32_t c2 = s1low < low2 ? 1U : 0; // high1 + c1 can't overflow, so compare against low2
             uint64_t s1high = high2 + c2;       // 192
 
-            assert(j >= 128);
-            assert(j <= 180);
+            Debug.Assert(j >= 128);
+            Debug.Assert(j <= 180);
             uint32_t dist = (uint32_t)(j - 128); // dist: [0, 52]
             uint64_t shiftedhigh = s1high >> (int)dist;
             uint64_t shiftedlow = shiftright128(s1low, s1high, dist);
             return uint128_mod1e9(shiftedhigh, shiftedlow);
         }
 
-        static void append_n_digits(uint32_t olength, uint32_t digits, char* result)
+        static void append_n_digits(int32_t olength, uint32_t digits, Span<char> result)
         {
 
-            uint32_t i = 0;
+            int32_t i = 0;
             while (digits >= 10000)
             {
-#if __clang__ // https://bugs.llvm.org/show_bug.cgi?id=38217
-         uint32_t c = digits - 10000 * (digits / 10000);
-#else
-                uint32_t c = digits % 10000;
-#endif
+                int32_t c = (int32_t)(digits % 10000);
                 digits /= 10000;
-                uint32_t c0 = (c % 100) << 1;
-                uint32_t c1 = (c / 100) << 1;
-                memcpy(result + olength - i - 2, DIGIT_TABLE + c0, 2);
-                memcpy(result + olength - i - 4, DIGIT_TABLE + c1, 2);
+
+                int32_t c0 = (c % 100) << 1;
+                int32_t c1 = (c / 100) << 1;
+                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(olength - i - 2));
+                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(olength - i - 4));
                 i += 4;
             }
             if (digits >= 100)
             {
-                uint32_t c = (digits % 100) << 1;
+                int32_t c = (int32_t)(digits % 100) << 1;
                 digits /= 100;
-                memcpy(result + olength - i - 2, DIGIT_TABLE + c, 2);
+                DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(olength - i - 2));
                 i += 2;
             }
             if (digits >= 10)
             {
-                uint32_t c = digits << 1;
-                memcpy(result + olength - i - 2, DIGIT_TABLE + c, 2);
+                int32_t c = (int32_t)(digits << 1);
+                DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(olength - i - 2));
             }
             else
             {
@@ -103,28 +101,26 @@ namespace RyuCsharp
             }
         }
 
-        static void append_d_digits(uint32_t olength, uint32_t digits, char* result)
+        static void append_d_digits(int32_t olength, uint32_t digits, Span<char> result)
         {
-            uint32_t i = 0;
+            int32_t i = 0;
             while (digits >= 10000)
             {
-#if __clang__ // https://bugs.llvm.org/show_bug.cgi?id=38217
-         uint32_t c = digits - 10000 * (digits / 10000);
-#else
-                uint32_t c = digits % 10000;
-#endif
+
+                int32_t c = (int32_t)(digits % 10000);
+
                 digits /= 10000;
-                 uint32_t c0 = (c % 100) << 1;
-                 uint32_t c1 = (c / 100) << 1;
-                memcpy(result + olength + 1 - i - 2, DIGIT_TABLE + c0, 2);
-                memcpy(result + olength + 1 - i - 4, DIGIT_TABLE + c1, 2);
+	            int32_t c0 = (c % 100) << 1;
+	            int32_t c1 = (c / 100) << 1;
+                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(olength + 1 - i - 2));
+                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(olength + 1 - i - 4));
                 i += 4;
             }
             if (digits >= 100)
             {
                 uint32_t c = (digits % 100) << 1;
                 digits /= 100;
-                memcpy(result + olength + 1 - i - 2, DIGIT_TABLE + c, 2);
+                DIGIT_TABLE.AsSpan((int32_t)c, 2).CopyTo(result.Slice(olength + 1 - i - 2));
                 i += 2;
             }
             if (digits >= 10)
@@ -141,42 +137,39 @@ namespace RyuCsharp
             }
         }
 
-        static void append_c_digits(uint32_t count, uint32_t digits, char* result)
+        static void append_c_digits(int32_t count, uint32_t digits, Span<char> result)
         {
-            uint32_t i = 0;
+            int32_t i = 0;
             for (; i < count - 1; i += 2)
             {
                 uint32_t c = (digits % 100) << 1;
                 digits /= 100;
-                memcpy(result + count - i - 2, DIGIT_TABLE + c, 2);
+                DIGIT_TABLE.AsSpan((int32_t)c, 2).CopyTo(result.Slice(count - i - 2));
             }
+
             if (i < count)
             {
-                char c = (char)('0' + (digits % 10));
-                result[count - i - 1] = c;
+                result[count - i - 1] = (char)('0' + (digits % 10));
             }
         }
 
-        static void append_nine_digits(uint32_t digits, char* result)
+        static void append_nine_digits(uint32_t digits, Span<char> result)
         {
             if (digits == 0)
             {
-                memset(result, '0', 9);
+                result.Slice(0, 9).Fill('0');
                 return;
             }
 
-            for (uint32_t i = 0; i < 5; i += 4)
+            for (int32_t i = 0; i < 5; i += 4)
             {
-#if __clang__ // https://bugs.llvm.org/show_bug.cgi?id=38217
-         uint32_t c = digits - 10000 * (digits / 10000);
-#else
                 uint32_t c = digits % 10000;
-#endif
+
                 digits /= 10000;
-                 uint32_t c0 = (c % 100) << 1;
-                 uint32_t c1 = (c / 100) << 1;
-                memcpy(result + 7 - i, DIGIT_TABLE + c0, 2);
-                memcpy(result + 5 - i, DIGIT_TABLE + c1, 2);
+                int32_t c0 = (int32_t)((c % 100) << 1);
+                int32_t c1 = (int32_t)((c / 100) << 1);
+                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(7 - i));
+                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(5 - i));
             }
             result[0] = (char)('0' + digits);
         }
@@ -197,45 +190,27 @@ namespace RyuCsharp
             return (log10Pow2(16 * (int32_t)idx) + 1 + 16 + 8) / 9;
         }
 
-        static int copy_special_str_printf(char* result, bool sign, uint64_t mantissa)
+        static int32_t copy_special_str_printf(Span<char> result, bool sign, uint64_t mantissa)
         {
-#if _MSC_VER
-  // TODO: Check that -nan is expected output on Windows.
-  if (sign) {
-    result[0] = '-';
-  }
-  if (mantissa != 0) {
-    if (mantissa < (1ull << (DOUBLE_MANTISSA_BITS - 1))) {
-      memcpy(result + sign, "nan(snan)", 9);
-      return sign + 9;
-    }
-    memcpy(result + sign, "nan", 3);
-    return sign + 3;
-  }
-#else
             if (mantissa != 0)
             {
-                memcpy(result, "nan", 3);
+                "nan".AsSpan().CopyTo(result);
                 return 3;
             }
             if (sign)
             {
                 result[0] = '-';
             }
-#endif
-            memcpy(result + (sign ? 1 : 0), "Infinity", 8);
+            "Infinity".AsSpan().CopyTo(result.Slice((sign ? 1 : 0)));
             return (sign ? 1 : 0) + 8;
         }
 
-        public static int d2fixed_buffered_n(double d, uint32_t precision, char* result)
+        public static int d2fixed_buffered_n(double d, int32_t precision, Span<char> result)
         {
-            uint64_t bits = double_to_bits(d);
+            if (precision < 0)
+                throw new ArgumentException(nameof(precision));
 
-
-            // Decode bits into sign, mantissa, and exponent.
-            bool ieeeSign = ((bits >> (DOUBLE_MANTISSA_BITS + DOUBLE_EXPONENT_BITS)) & 1) != 0;
-            uint64_t ieeeMantissa = bits & ((1ul << DOUBLE_MANTISSA_BITS) -1);
-            uint32_t ieeeExponent = (uint32_t)((bits >> DOUBLE_MANTISSA_BITS) & ((1u << DOUBLE_EXPONENT_BITS) - 1));
+            (bool ieeeSign, uint64_t ieeeMantissa, uint32_t ieeeExponent) = Parse(d);
 
             // Case distinction; exit early for the easy cases.
             if (ieeeExponent == ((1u << DOUBLE_EXPONENT_BITS) - 1u))
@@ -253,8 +228,8 @@ namespace RyuCsharp
                 if (precision > 0)
                 {
                     result[index2++] = '.';
-                    memset(result + index2, '0', precision);
-                    index2 += (int)precision;
+                    result.Slice(index2, precision).Fill('0');
+                    index2 += precision;
                 }
                 return index2;
             }
@@ -290,17 +265,17 @@ namespace RyuCsharp
                     uint32_t j = (uint32_t)(p10bits - e2);
                     // Temporary: j is usually around 128, and by shifting a bit, we push it to 128 or above, which is
                     // a slightly faster code path in mulShift_mod1e9. Instead, we can just increase the multipliers.
-                    uint32_t digits = mulShift_mod1e9(m2 << 8, POW10_SPLIT[(uint)(POW10_OFFSET[(uint)idx] + i)], (int32_t)(j + 8));
+                    uint32_t digits = mulShift_mod1e9(m2 << 8, POW10_SPLIT[(uint32_t)(POW10_OFFSET[idx] + i)], (int32_t)(j + 8));
                     if (nonzero)
                     {
-                        append_nine_digits(digits, result + index);
+                        append_nine_digits(digits, result.Slice(index));
                         index += 9;
                     }
                     else if (digits != 0)
                     {
-                        uint32_t olength = decimalLength9(digits);
-                        append_n_digits(olength, digits, result + index);
-                        index += (int)olength;
+                        int32_t olength = decimalLength9(digits);
+                        append_n_digits(olength, digits, result.Slice(index));
+                        index += olength;
                         nonzero = true;
                     }
                 }
@@ -317,21 +292,21 @@ namespace RyuCsharp
             {
                 int32_t idx = -e2 / 16;
 
-                uint32_t blocks = precision / 9 + 1;
+                uint32_t blocks = ((uint32_t)precision / 9) + 1;
                 // 0 = don't round up; 1 = round up unconditionally; 2 = round up if odd.
                 int roundUp = 0;
                 uint32_t i = 0;
                 if (blocks <= MIN_BLOCK_2[(uint)idx])
                 {
                     i = blocks;
-                    memset(result + index, '0', precision);
-                    index += (int)precision;
+                    result.Slice(index, precision).Fill('0');
+                    index += precision;
                 }
                 else if (i < MIN_BLOCK_2[(uint)idx])
                 {
-                    i = MIN_BLOCK_2[(uint)idx];
-                    memset(result + index, '0', 9 * i);
-                    index += (int)(9 * i);
+                    i = MIN_BLOCK_2[(uint32_t)idx];
+                    result.Slice(index, (int32_t)(9 * i)).Fill('0');
+                    index += (int32_t)(9 * i);
                 }
                 for (; i < blocks; ++i)
                 {
@@ -341,9 +316,9 @@ namespace RyuCsharp
                     {
                         // If the remaining digits are all 0, then we might as well use memset.
                         // No rounding required in this case.
-                        uint32_t fill = precision - 9 * i;
-                        memset(result + index, '0', fill);
-                        index += (int)fill;
+                        int32_t fill = precision - (int32_t)(9 * i);
+                        result.Slice(index, fill).Fill('0');
+                        index += fill;
                         break;
                     }
                     // Temporary: j is usually around 128, and by shifting a bit, we push it to 128 or above, which is
@@ -352,12 +327,12 @@ namespace RyuCsharp
 
                     if (i < blocks - 1)
                     {
-                        append_nine_digits(digits, result + index);
+                        append_nine_digits(digits, result.Slice(index));
                         index += 9;
                     }
                     else
                     {
-                        uint32_t maximum = precision - 9 * i;
+                        uint32_t maximum = (uint32_t)(precision - (int32_t)(9 * i));
                         uint32_t lastDigit = 0;
                         for (uint32_t k = 0; k < 9 - maximum; ++k)
                         {
@@ -372,7 +347,7 @@ namespace RyuCsharp
                         else
                         {
                             // Is m * 10^(additionalDigits + 1) / 2^(-e2) integer?
-                            int32_t requiredTwos = -e2 - (int32_t)precision - 1;
+                            int32_t requiredTwos = -e2 - precision - 1;
                             bool trailingZeros = requiredTwos <= 0
                              || (requiredTwos < 60 && multipleOfPowerOf2(m2, (uint32_t)requiredTwos));
                             roundUp = trailingZeros ? 2 : 1;
@@ -380,7 +355,7 @@ namespace RyuCsharp
                         }
                         if (maximum > 0)
                         {
-                            append_c_digits(maximum, digits, result + index);
+                            append_c_digits((int32_t)maximum, digits, result.Slice(index));
                             index += (int)maximum;
                         }
                         break;
@@ -431,29 +406,37 @@ namespace RyuCsharp
             }
             else
             {
-                memset(result + index, '0', precision);
-                index += (int)precision;
+                result.Slice(index, precision).Fill('0');
+                index += precision;
             }
             return index;
         }
 
-        static void d2fixed_buffered(double d, uint32_t precision, char* result)
+        public static Span<char> d2fixed_buffered(double d, int32_t precision, Span<char> result)
         {
             int len = d2fixed_buffered_n(d, precision, result);
-            result[len] = '\0';
+            return result.Slice(0, len);
         }
 
-
-
-        public static int d2exp_buffered_n(double d, uint32_t precision, char* result)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static (bool ieeeSign, uint64_t ieeeMantissa, uint32_t ieeeExponent) Parse(double d)
         {
-            uint64_t bits = double_to_bits(d);
-
+            uint64_t bits = (uint64_t)BitConverter.DoubleToInt64Bits(d);
 
             // Decode bits into sign, mantissa, and exponent.
-             bool ieeeSign = ((bits >> (DOUBLE_MANTISSA_BITS + DOUBLE_EXPONENT_BITS)) & 1) != 0;
-             uint64_t ieeeMantissa = bits & ((1ul << DOUBLE_MANTISSA_BITS) -1);
-             uint32_t ieeeExponent = (uint32_t)((bits >> DOUBLE_MANTISSA_BITS) & ((1u << DOUBLE_EXPONENT_BITS) - 1));
+            bool ieeeSign = ((bits >> (DOUBLE_MANTISSA_BITS + DOUBLE_EXPONENT_BITS)) & 1) != 0;
+            uint64_t ieeeMantissa = bits & ((1ul << DOUBLE_MANTISSA_BITS) - 1);
+            uint32_t ieeeExponent = (uint32_t)((bits >> DOUBLE_MANTISSA_BITS) & ((1u << DOUBLE_EXPONENT_BITS) - 1));
+
+            return (ieeeSign, ieeeMantissa, ieeeExponent);
+        }
+
+        public static int32_t d2exp_buffered_n(double d, int32_t precision, Span<char> result)
+        {
+            if (precision < 0)
+                throw new ArgumentException(nameof(precision));
+
+            (bool ieeeSign, uint64_t ieeeMantissa, uint32_t ieeeExponent) = Parse(d);
 
             // Case distinction; exit early for the easy cases.
             if (ieeeExponent == ((1u << DOUBLE_EXPONENT_BITS) - 1u))
@@ -471,10 +454,10 @@ namespace RyuCsharp
                 if (precision > 0)
                 {
                     result[index2++] = '.';
-                    memset(result + index2, '0', precision);
-                    index2 += (int)precision;
+                    result.Slice(index2, precision).Fill('0');
+                    index2 += precision;
                 }
-                memcpy(result + index2, "e+00", 4);
+                "e+00".AsSpan().CopyTo(result.Slice(index2));
                 index2 += 4;
                 return index2;
             }
@@ -501,8 +484,8 @@ namespace RyuCsharp
                 result[index++] = '-';
             }
             uint32_t digits = 0;
-            uint32_t printedDigits = 0;
-            uint32_t availableDigits = 0;
+            int32_t printedDigits = 0;
+            int32_t availableDigits = 0;
             int32_t exp = 0;
             if (e2 >= -52)
             {
@@ -515,7 +498,7 @@ namespace RyuCsharp
                     uint32_t j = (uint32_t)(p10bits - e2);
                     // Temporary: j is usually around 128, and by shifting a bit, we push it to 128 or above, which is
                     // a slightly faster code path in mulShift_mod1e9. Instead, we can just increase the multipliers.
-                    digits = mulShift_mod1e9(m2 << 8, POW10_SPLIT[(uint)(POW10_OFFSET[(uint)idx] + i)], (int32_t)(j + 8));
+                    digits = mulShift_mod1e9(m2 << 8, POW10_SPLIT[POW10_OFFSET[idx] + i], (int32_t)(j + 8));
                     if (printedDigits != 0)
                     {
                         if (printedDigits + 9 > precision)
@@ -523,22 +506,22 @@ namespace RyuCsharp
                             availableDigits = 9;
                             break;
                         }
-                        append_nine_digits(digits, result + index);
+                        append_nine_digits(digits, result.Slice(index));
                         index += 9;
                         printedDigits += 9;
                     }
                     else if (digits != 0)
                     {
                         availableDigits = decimalLength9(digits);
-                        exp = i * 9 + (int32_t)availableDigits - 1;
+                        exp = i * 9 + availableDigits - 1;
                         if (availableDigits > precision)
                         {
                             break;
                         }
                         if (printDecimalPoint)
                         {
-                            append_d_digits(availableDigits, digits, result + index);
-                            index += (int)(availableDigits + 1); // +1 for decimal point
+                            append_d_digits(availableDigits, digits, result.Slice(index));
+                            index += (availableDigits + 1); // +1 for decimal point
                         }
                         else
                         {
@@ -569,22 +552,22 @@ namespace RyuCsharp
                             availableDigits = 9;
                             break;
                         }
-                        append_nine_digits(digits, result + index);
+                        append_nine_digits(digits, result.Slice(index));
                         index += 9;
                         printedDigits += 9;
                     }
                     else if (digits != 0)
                     {
                         availableDigits = decimalLength9(digits);
-                        exp = -(i + 1) * 9 + (int32_t)availableDigits - 1;
+                        exp = -(i + 1) * 9 + availableDigits - 1;
                         if (availableDigits > precision)
                         {
                             break;
                         }
                         if (printDecimalPoint)
                         {
-                            append_d_digits(availableDigits, digits, result + index);
-                            index += (int)(availableDigits + 1); // +1 for decimal point
+                            append_d_digits(availableDigits, digits, result.Slice(index));
+                            index += availableDigits + 1; // +1 for decimal point
                         }
                         else
                         {
@@ -596,7 +579,7 @@ namespace RyuCsharp
                 }
             }
 
-            uint32_t maximum = precision - printedDigits;
+            int32_t maximum = precision - printedDigits;
 
             if (availableDigits == 0)
             {
@@ -622,13 +605,13 @@ namespace RyuCsharp
             {
                 // Is m * 2^e2 * 10^(precision + 1 - exp) integer?
                 // precision was already increased by 1, so we don't need to write + 1 here.
-                int32_t rexp = (int32_t)precision - exp;
+                int32_t rexp = precision - exp;
                 int32_t requiredTwos = -e2 - rexp;
                 bool trailingZeros = requiredTwos <= 0
                   || (requiredTwos < 60 && multipleOfPowerOf2(m2, (uint32_t)requiredTwos));
                 if (rexp < 0)
                 {
-                     int32_t requiredFives = -rexp;
+                    int32_t requiredFives = -rexp;
                     trailingZeros = trailingZeros && multipleOfPowerOf5(m2, (uint32_t)requiredFives);
                 }
                 roundUp = trailingZeros ? 2 : 1;
@@ -638,20 +621,20 @@ namespace RyuCsharp
             {
                 if (digits == 0)
                 {
-                    memset(result + index, '0', maximum);
+                    result.Slice(index, maximum).Fill('0');
                 }
                 else
                 {
-                    append_c_digits(maximum, digits, result + index);
+                    append_c_digits(maximum, digits, result.Slice(index));
                 }
-                index += (int)maximum;
+                index += maximum;
             }
             else
             {
                 if (printDecimalPoint)
                 {
-                    append_d_digits(maximum, digits, result + index);
-                    index += (int)(maximum + 1); // +1 for decimal point
+                    append_d_digits(maximum, digits, result.Slice(index));
+                    index += maximum + 1; // +1 for decimal point
                 }
                 else
                 {
@@ -706,24 +689,24 @@ namespace RyuCsharp
 
             if (exp >= 100)
             {
-                 int32_t c = exp % 10;
-                memcpy(result + index, DIGIT_TABLE + (uint)(2 * (exp / 10)), 2);
+                int32_t c = exp % 10;
+                DIGIT_TABLE.AsSpan(2 * (exp / 10), 2).CopyTo(result.Slice(index));
                 result[index + 2] = (char)('0' + c);
                 index += 3;
             }
             else
             {
-                memcpy(result + index, DIGIT_TABLE + (uint)(2 * exp), 2);
+                DIGIT_TABLE.AsSpan(2 * exp, 2).CopyTo(result.Slice(index));
                 index += 2;
             }
 
             return index;
         }
 
-        static void d2exp_buffered(double d, uint32_t precision, char* result)
+        public static Span<char> d2exp_buffered(double d, int32_t precision, Span<char> result)
         {
             int len = d2exp_buffered_n(d, precision, result);
-            result[len] = '\0';
+            return result.Slice(0, len);
         }
 
     }
