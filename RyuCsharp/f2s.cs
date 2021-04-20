@@ -187,15 +187,9 @@ namespace RyuCsharp
             if (vmIsTrailingZeros || vrIsTrailingZeros)
             {
                 // General case, which happens rarely (~4.0%).
-                while (vp / 10 > vm / 10)
+                while (vp / 10 > Math.DivRem((int32_t)vm, 10, out int32_t rem))
                 {
-#if __clang__ // https://bugs.llvm.org/show_bug.cgi?id=23106
-                    // The compiler does not realize that vm % 10 can be computed from vm / 10
-                    // as vm - (vm / 10) * 10.
-                    vmIsTrailingZeros &= vm - (vm / 10) * 10 == 0;
-#else
-                    vmIsTrailingZeros &= vm % 10 == 0;
-#endif
+                    vmIsTrailingZeros &= rem == 0;
                     vrIsTrailingZeros &= lastRemovedDigit == 0;
                     lastRemovedDigit = (uint8_t)(vr % 10);
                     vr /= 10;
@@ -263,8 +257,8 @@ namespace RyuCsharp
                 result[index++] = '-';
             }
 
-            uint32_t output = v.mantissa;
-            int32_t olength = decimalLength9(output);
+            int32_t output = (int)v.mantissa;
+            int32_t olength = decimalLength9((uint)output);
 
 
             // Print the decimal digits.
@@ -277,29 +271,24 @@ namespace RyuCsharp
             int32_t i = 0;
             while (output >= 10000)
             {
-#if __clang__ // https://bugs.llvm.org/show_bug.cgi?id=38217
-                uint32_t c = output - 10000 * (output / 10000);
-#else
-                uint32_t c = output % 10000;
-#endif
-                output /= 10000;
+                output = Math.DivRem(output, 10000, out int32_t c);
 
-                uint32_t c0 = (c % 100) << 1;
-                uint32_t c1 = (c / 100) << 1;
-                DIGIT_TABLE.AsSpan((int32_t)c0, 2).CopyTo(result.Slice(index + olength - i - 1));
-                DIGIT_TABLE.AsSpan((int32_t)c1, 2).CopyTo(result.Slice(index + olength - i - 3));
+                int32_t c1 = Math.DivRem(c, 100, out int32_t c0) << 1;
+                c0 <<= 1;
+                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(index + olength - i - 1));
+                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(index + olength - i - 3));
                 i += 4;
             }
             if (output >= 100)
             {
-                uint32_t c = (output % 100) << 1;
-                output /= 100;
-                DIGIT_TABLE.AsSpan((int32_t)c, 2).CopyTo(result.Slice(index + olength - i - 1));
+                output = Math.DivRem(output, 100, out int32_t c);
+                c <<= 1;
+                DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(index + olength - i - 1));
                 i += 2;
             }
             if (output >= 10)
             {
-                uint32_t c = output << 1;
+                int32_t c = output << 1;
                 // We can't use memcpy here: the decimal dot goes between these two digits.
                 result[(int32_t)((uint32_t)index + olength - i)] = DIGIT_TABLE[c + 1];
                 result[index] = DIGIT_TABLE[c];

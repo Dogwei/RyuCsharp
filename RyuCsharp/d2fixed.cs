@@ -74,19 +74,17 @@ namespace RyuCsharp
             int32_t i = 0;
             while (digits >= 10000)
             {
-                int32_t c = (int32_t)(digits % 10000);
-                digits /= 10000;
-
-                int32_t c0 = (c % 100) << 1;
-                int32_t c1 = (c / 100) << 1;
+                digits = (uint32_t)Math.DivRem((int32_t)digits, 10000, out int32_t c);
+                int32_t c1 = (Math.DivRem(c, 100, out int32_t c0)) << 1;
+                c0 <<= 1;
                 DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(olength - i - 2));
                 DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(olength - i - 4));
                 i += 4;
             }
             if (digits >= 100)
             {
-                int32_t c = (int32_t)(digits % 100) << 1;
-                digits /= 100;
+                digits = (uint32_t)Math.DivRem((int32_t)digits, 100, out int32_t c);
+                c <<= 1;
                 DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(olength - i - 2));
                 i += 2;
             }
@@ -106,21 +104,18 @@ namespace RyuCsharp
             int32_t i = 0;
             while (digits >= 10000)
             {
-
-                int32_t c = (int32_t)(digits % 10000);
-
-                digits /= 10000;
-	            int32_t c0 = (c % 100) << 1;
-	            int32_t c1 = (c / 100) << 1;
+                digits = (uint32_t)Math.DivRem((int32_t)digits, 10000, out int32_t c);
+                int32_t c1 = Math.DivRem(c, 100, out int32_t c0) << 1;
+                c0 <<= 1;
                 DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(olength + 1 - i - 2));
                 DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(olength + 1 - i - 4));
                 i += 4;
             }
             if (digits >= 100)
             {
-                uint32_t c = (digits % 100) << 1;
-                digits /= 100;
-                DIGIT_TABLE.AsSpan((int32_t)c, 2).CopyTo(result.Slice(olength + 1 - i - 2));
+                digits = (uint32_t)Math.DivRem((int32_t)digits, 100, out int32_t c);
+                c <<= 1;
+                DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(olength + 1 - i - 2));
                 i += 2;
             }
             if (digits >= 10)
@@ -142,9 +137,9 @@ namespace RyuCsharp
             int32_t i = 0;
             for (; i < count - 1; i += 2)
             {
-                uint32_t c = (digits % 100) << 1;
-                digits /= 100;
-                DIGIT_TABLE.AsSpan((int32_t)c, 2).CopyTo(result.Slice(count - i - 2));
+                digits = (uint)Math.DivRem((int32_t)digits, 100, out int32_t rem);
+                int32_t c = rem << 1;
+                DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(count - i - 2));
             }
 
             if (i < count)
@@ -163,11 +158,9 @@ namespace RyuCsharp
 
             for (int32_t i = 0; i < 5; i += 4)
             {
-                uint32_t c = digits % 10000;
-
-                digits /= 10000;
-                int32_t c0 = (int32_t)((c % 100) << 1);
-                int32_t c1 = (int32_t)((c / 100) << 1);
+                digits = (uint)Math.DivRem((int)digits, 10000, out int32_t c);
+                int32_t c1 = Math.DivRem(c, 100, out int rem) << 1;
+                int32_t c0 = rem << 1;
                 DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(7 - i));
                 DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(5 - i));
             }
@@ -333,11 +326,10 @@ namespace RyuCsharp
                     else
                     {
                         uint32_t maximum = (uint32_t)(precision - (int32_t)(9 * i));
-                        uint32_t lastDigit = 0;
+                        int32_t lastDigit = 0;
                         for (uint32_t k = 0; k < 9 - maximum; ++k)
                         {
-                            lastDigit = digits % 10;
-                            digits /= 10;
+                            digits = (uint)Math.DivRem((int)digits, 10, out lastDigit);
                         }
 
                         if (lastDigit != 5)
@@ -585,13 +577,12 @@ namespace RyuCsharp
             {
                 digits = 0;
             }
-            uint32_t lastDigit = 0;
+            int32_t lastDigit = 0;
             if (availableDigits > maximum)
             {
                 for (uint32_t k = 0; k < availableDigits - maximum; ++k)
                 {
-                    lastDigit = digits % 10;
-                    digits /= 10;
+                    digits = (uint)Math.DivRem((int)digits, 10, out lastDigit);
                 }
             }
 
@@ -689,8 +680,8 @@ namespace RyuCsharp
 
             if (exp >= 100)
             {
-                int32_t c = exp % 10;
-                DIGIT_TABLE.AsSpan(2 * (exp / 10), 2).CopyTo(result.Slice(index));
+                int q = Math.DivRem(exp, 10, out int c);
+                DIGIT_TABLE.AsSpan(2 * q, 2).CopyTo(result.Slice(index));
                 result[index + 2] = (char)('0' + c);
                 index += 3;
             }

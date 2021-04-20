@@ -282,13 +282,12 @@ namespace RyuCsharp
                 uint32_t output3 = ((uint32_t)output) - (100000000 * ((uint32_t)q));
                 output = q;
 
-                int32_t c = (int32_t)(output3 % 10000);
-                output3 /= 10000;
+                output3 = (uint)Math.DivRem((int)output3, 10000, out int32_t c);
                 int32_t d = (int32_t)(output3 % 10000);
-                int32_t c0 = (c % 100) << 1;
-                int32_t c1 = (c / 100) << 1;
-                int32_t d0 = (d % 100) << 1;
-                int32_t d1 = (d / 100) << 1;
+                int32_t c1 = Math.DivRem(c, 100, out int c0) << 1;
+                c0 <<= 1;
+                int32_t d1 = Math.DivRem(d, 100, out int d0) << 1;
+                d0 <<= 1;
                 DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(index + olength - i - 1));
                 DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(index + olength - i - 3));
                 DIGIT_TABLE.AsSpan(d0, 2).CopyTo(result.Slice(index + olength - i - 5));
@@ -298,22 +297,17 @@ namespace RyuCsharp
             uint32_t output2 = (uint32_t)output;
             while (output2 >= 10000)
             {
-#if __clang__ // https://bugs.llvm.org/show_bug.cgi?id=38217
-                uint32_t c = output2 - 10000 * (output2 / 10000);
-#else
-                uint32_t c = output2 % 10000;
-#endif
-                output2 /= 10000;
-                uint32_t c0 = (c % 100) << 1;
-                uint32_t c1 = (c / 100) << 1;
-                DIGIT_TABLE.AsSpan((int32_t)c0, 2).CopyTo(result.Slice(index + olength - i - 1));
-                DIGIT_TABLE.AsSpan((int32_t)c1, 2).CopyTo(result.Slice(index + olength - i - 3));
+                output2 = (uint32_t)Math.DivRem((int32_t)output2, 10000, out int32_t c);
+                int32_t c1 = Math.DivRem(c, 100, out int c0) << 1;
+                c0 <<= 1;
+                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(index + olength - i - 1));
+                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(index + olength - i - 3));
                 i += 4;
             }
             if (output2 >= 100)
             {
-                int32_t c = (int32_t)((output2 % 100) << 1);
-                output2 /= 100;
+                output2 = (uint32_t)Math.DivRem((int32_t)output2 , 100, out int32_t c);
+                c <<= 1;
                 DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(index + olength - i - 1));
                 i += 2;
             }
@@ -351,8 +345,7 @@ namespace RyuCsharp
 
             if (exp >= 100)
             {
-                int32_t c = exp % 10;
-                DIGIT_TABLE.AsSpan(2 * (exp / 10), 2).CopyTo(result.Slice(index));
+                DIGIT_TABLE.AsSpan(2 * Math.DivRem(exp, 10, out var c), 2).CopyTo(result.Slice(index));
                 result[index + 2] = (char)('0' + c);
                 index += 3;
             }
