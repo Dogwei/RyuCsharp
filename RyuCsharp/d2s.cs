@@ -288,10 +288,10 @@ namespace RyuCsharp
                 c0 <<= 1;
                 int32_t d1 = Math.DivRem(d, 100, out int d0) << 1;
                 d0 <<= 1;
-                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(index + olength - i - 1));
-                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(index + olength - i - 3));
-                DIGIT_TABLE.AsSpan(d0, 2).CopyTo(result.Slice(index + olength - i - 5));
-                DIGIT_TABLE.AsSpan(d1, 2).CopyTo(result.Slice(index + olength - i - 7));
+                DIGIT_TABLE.Copy2Elem(c0, out result[index + olength - i - 1], out result[index + olength - i - 0]);
+                DIGIT_TABLE.Copy2Elem(c1, out result[index + olength - i - 3], out result[index + olength - i - 2]);
+                DIGIT_TABLE.Copy2Elem(d0, out result[index + olength - i - 5], out result[index + olength - i - 4]);
+                DIGIT_TABLE.Copy2Elem(d1, out result[index + olength - i - 7], out result[index + olength - i - 6]);
                 i += 8;
             }
             uint32_t output2 = (uint32_t)output;
@@ -300,15 +300,15 @@ namespace RyuCsharp
                 output2 = (uint32_t)Math.DivRem((int32_t)output2, 10000, out int32_t c);
                 int32_t c1 = Math.DivRem(c, 100, out int c0) << 1;
                 c0 <<= 1;
-                DIGIT_TABLE.AsSpan(c0, 2).CopyTo(result.Slice(index + olength - i - 1));
-                DIGIT_TABLE.AsSpan(c1, 2).CopyTo(result.Slice(index + olength - i - 3));
+                DIGIT_TABLE.Copy2Elem(c0, out result[index + olength - i - 1], out result[index + olength - i - 0]);
+                DIGIT_TABLE.Copy2Elem(c1, out result[index + olength - i - 3], out result[index + olength - i - 2]);
                 i += 4;
             }
             if (output2 >= 100)
             {
-                output2 = (uint32_t)Math.DivRem((int32_t)output2 , 100, out int32_t c);
+                output2 = (uint32_t)Math.DivRem((int32_t)output2, 100, out int32_t c);
                 c <<= 1;
-                DIGIT_TABLE.AsSpan(c, 2).CopyTo(result.Slice(index + olength - i - 1));
+                DIGIT_TABLE.Copy2Elem(c, out result[index + olength - i - 1], out result[index + olength - i - 0]);
                 i += 2;
             }
             if (output2 >= 10)
@@ -345,13 +345,13 @@ namespace RyuCsharp
 
             if (exp >= 100)
             {
-                DIGIT_TABLE.AsSpan(2 * Math.DivRem(exp, 10, out var c), 2).CopyTo(result.Slice(index));
+                DIGIT_TABLE.Copy2Elem(2 * Math.DivRem(exp, 10, out var c), out result[index], out result[index + 1]);
                 result[index + 2] = (char)('0' + c);
                 index += 3;
             }
             else if (exp >= 10)
             {
-                DIGIT_TABLE.AsSpan(2 * exp, 2).CopyTo(result.Slice(index));
+                DIGIT_TABLE.Copy2Elem(2 * exp,  out result[index], out result[index + 1]);
                 index += 2;
             }
             else

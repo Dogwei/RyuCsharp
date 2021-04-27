@@ -174,5 +174,12 @@ namespace RyuCsharp
 
             return r;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Copy2Elem<T>(this T[] array, int start, out T elem0, out T elem1) where T : struct
+        {
+            elem0 = array[start + 0];
+            elem1 = array[start + 1];
+        }
     }
 }
