@@ -12,3 +12,4 @@ Ryu, implemented by C#, a high-performance algorithm for converting floats to st
 - To avoid managed memory fragmentation, the implementation was changed from pointers to references. (The difference between pointer and reference is that the former is an unmanaged pointer and the latter is a managed pointer.)
 - Inherit the open source license of the parent project to make it easier for everyone to use.
 - fix bugs.
+- Publish [nuget package](https://www.nuget.org/packages/RyuCsharp/).
