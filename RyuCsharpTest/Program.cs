@@ -26,6 +26,7 @@ namespace RyuCsharpTest
             Test(3.1415926e100);
             Test(double.MaxValue);
             Test(double.MinValue);
+            Test(5737722933969577e-231);
         }
 
         public static void Test(double val)

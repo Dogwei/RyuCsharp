@@ -36,7 +36,7 @@ partial class Ryu
     {
         // We don't need to handle the case dist >= 64 here (see above).
         assert(dist < 64);
-        assert(dist > 0);
+        assert(dist >= 0);
         return (hi << (int)(64 - dist)) | (lo >> (int)dist);
     }
 
