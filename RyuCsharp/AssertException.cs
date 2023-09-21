@@ -1,10 +1,8 @@
-﻿using System;
-namespace RyuCsharp
+﻿namespace RyuCsharp;
+
+sealed class AssertException : Exception
 {
-    sealed class AssertException : Exception
+    public AssertException()
     {
-        public AssertException()
-        {
-        }
     }
 }

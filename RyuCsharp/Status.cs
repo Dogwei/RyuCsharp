@@ -1,10 +1,9 @@
-﻿namespace RyuCsharp
+﻿namespace RyuCsharp;
+
+public enum Status
 {
-    public enum Status
-    {
-        SUCCESS,
-        INPUT_TOO_SHORT,
-        INPUT_TOO_LONG,
-        MALFORMED_INPUT
-    }
+    SUCCESS,
+    INPUT_TOO_SHORT,
+    INPUT_TOO_LONG,
+    MALFORMED_INPUT
 }

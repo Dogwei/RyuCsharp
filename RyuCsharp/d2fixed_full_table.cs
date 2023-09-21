@@ -1,17 +1,11 @@
-﻿using uint8_t = System.Byte;
-using int32_t = System.Int32;
-using uint16_t = System.UInt16;
-using uint32_t = System.UInt32;
-using int64_t = System.Int64;
-using uint64_t = System.UInt64;
+﻿
+namespace RyuCsharp;
 
-namespace RyuCsharp
+partial class Ryu
 {
-    unsafe partial class Ryu
-    {
-        const int TABLE_SIZE = 64;
+    const int TABLE_SIZE = 64;
 
-        static readonly native_one_dim_array<uint16_t> POW10_OFFSET = new uint16_t[TABLE_SIZE] {
+    static readonly uint16_t[] POW10_OFFSET = new uint16_t[TABLE_SIZE] {
   0, 2, 5, 8, 12, 16, 21, 26, 32, 39,
   46, 54, 62, 71, 80, 90, 100, 111, 122, 134,
   146, 159, 173, 187, 202, 217, 233, 249, 266, 283,
@@ -21,7 +15,7 @@ namespace RyuCsharp
   1084, 1118, 1153, 1188
 };
 
-        static readonly native_two_dim_array<uint64_t> POW10_SPLIT = new uint64_t[1224, 3] {
+    static readonly uint64_t[,] POW10_SPLIT = new uint64_t[1224, 3] {
   {                    1u,    72057594037927936u,                    0u },
   {   699646928636035157u,             72057594u,                    0u },
   {                    1u,                    0u,                  256u },
@@ -1248,10 +1242,10 @@ namespace RyuCsharp
   {  8310173728816391804u,               197658u,                    0u },
 };
 
-        const int TABLE_SIZE_2 = 69;
-        const int ADDITIONAL_BITS_2 = 120;
+    const int TABLE_SIZE_2 = 69;
+    const int ADDITIONAL_BITS_2 = 120;
 
-        static readonly native_one_dim_array<uint16_t> POW10_OFFSET_2 = new uint16_t[TABLE_SIZE_2] {
+    static readonly uint16_t[] POW10_OFFSET_2 = new uint16_t[TABLE_SIZE_2] {
      0,    2,    6,   12,   20,   29,   40,   52,   66,   80,
     95,  112,  130,  150,  170,  192,  215,  240,  265,  292,
    320,  350,  381,  413,  446,  480,  516,  552,  590,  629,
@@ -1261,7 +1255,7 @@ namespace RyuCsharp
   2465, 2544, 2625, 2706, 2789, 2873, 2959, 3046, 3133
 };
 
-        static readonly native_one_dim_array<uint8_t> MIN_BLOCK_2 = new uint8_t[TABLE_SIZE_2] {
+    static readonly uint8_t[] MIN_BLOCK_2 = new uint8_t[TABLE_SIZE_2] {
      0,    0,    0,    0,    0,    0,    1,    1,    2,    3,
      3,    4,    4,    5,    5,    6,    6,    7,    7,    8,
      8,    9,    9,   10,   11,   11,   12,   12,   13,   13,
@@ -1271,7 +1265,7 @@ namespace RyuCsharp
     30,   30,   31,   31,   32,   32,   33,   34,    0
 };
 
-        static readonly native_two_dim_array<uint64_t> POW10_SPLIT_2 = new uint64_t[3133, 3] {
+    static readonly uint64_t[,] POW10_SPLIT_2 = new uint64_t[3133, 3] {
   {                    0u,                    0u,              3906250u },
   {                    0u,                    0u,         202000000000u },
   {                    0u, 11153727427136454656u,                   59u },
@@ -4406,5 +4400,4 @@ namespace RyuCsharp
   {                    0u,                    0u,         241525390625u },
   {                    0u,                    0u,          33000000000u },
 };
-    }
 }

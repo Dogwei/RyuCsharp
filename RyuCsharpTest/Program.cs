@@ -1,8 +1,6 @@
-﻿using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics.X86;
-using RyuCsharp;
+﻿using RyuCsharp;
+using System;
+using System.Runtime.CompilerServices;
 
 namespace RyuCsharpTest
 {
@@ -34,32 +32,33 @@ namespace RyuCsharpTest
         {
             const int buffer_length = 2000;
 
-            var buffer = stackalloc char[2000];
+            var buffer = new char[2000];
 
-            var str1 = new string(buffer, 0, Ryu.d2s_buffered_n(val, buffer));
+            var str1 = new string(buffer, 0, Ryu.d2s_buffered_n(val, ref buffer[0]));
             double val1;
-            var eq1 = Ryu.s2d_n(buffer, str1.Length, &val1);
-            Empty(buffer, buffer_length);
+            var eq1 = Ryu.s2d_n(ref buffer[0], str1.Length, out val1);
+            Empty(ref buffer[0], buffer_length);
 
-            var str2 = new string(buffer, 0, Ryu.d2exp_buffered_n(val, 10, buffer));
+            var str2 = new string(buffer, 0, Ryu.d2exp_buffered_n(val, 10, ref buffer[0]));
             double val2;
-            var eq2 = Ryu.s2d_n(buffer, str2.Length, &val2);
-            Empty(buffer, buffer_length);
+            var eq2 = Ryu.s2d_n(ref buffer[0], str2.Length, out val2);
+            Empty(ref buffer[0], buffer_length);
 
-            var str3 = new string(buffer, 0, Ryu.d2fixed_buffered_n(val, 10, buffer));
+            var str3 = new string(buffer, 0, Ryu.d2fixed_buffered_n(val, 10, ref buffer[0]));
             double val3;
-            var eq3 = Ryu.s2d_n(buffer, str3.Length, &val3);
-            Empty(buffer, buffer_length);
+            var eq3 = Ryu.s2d_n(ref buffer[0], str3.Length, out val3);
+            Empty(ref buffer[0], buffer_length);
 
             Console.WriteLine($"Value: {val}, d2s: [{str1} -- s2d: {val1}], d2exp(10): [{str2} -- s2d: {val2}], d2fixed(10): [{str3} -- s2d: {val3}]");
         }
 
-        public static void Empty(char* buffer, int length)
+        public static void Empty(ref char buffer, int length)
         {
-            for (int i = 0; i < length; i++)
-            {
-                buffer[i] = default;
-            }
+            Unsafe.InitBlock(
+                ref Unsafe.As<char, byte>(ref buffer), 
+                0, 
+                checked((uint)length * sizeof(char))
+                );
         }
     }
 }

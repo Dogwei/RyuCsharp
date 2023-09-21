@@ -4,3 +4,10 @@
 
 
 Ryu, implemented by C#, a high-performance algorithm for converting floats to strings.
+
+
+
+##### 2023-09-21 RyuCsharp update descriptions:
+
+- To avoid managed memory fragmentation, the implementation was changed from pointers to references. (The difference between pointer and reference is that the former is an unmanaged pointer and the latter is a managed pointer.)
+- Inherit the open source agreement of the parent project to make it easier for everyone to use.
