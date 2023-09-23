@@ -26,7 +26,6 @@ Ryu, implemented by C#, a high-performance algorithm for converting floats to st
 }
 
 {
-
     // Span
     Span<char> charSpan = (new char[32]).AsSpan();
     var writtenLength = Ryu.d2s_buffered_n(3.1415926D, ref charSpan[0]);
