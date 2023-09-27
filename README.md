@@ -22,21 +22,21 @@ Ryu, implemented by C#, a high-performance algorithm for converting floats to st
     // Array
     char[] charArray = new char[32]; // Need to ensure that the memory size is sufficient.
     var writtenLength = Ryu.d2s_buffered_n(3.1415926D, ref charArray[0]);
-    Console.WriteLine(new string(charArray, 0, writtenLength)); // Output: 3.1415926D
+    Console.WriteLine(new string(charArray, 0, writtenLength)); // Output: 3.1415926
 }
 
 {
     // Span
     Span<char> charSpan = (new char[32]).AsSpan();
     var writtenLength = Ryu.d2s_buffered_n(3.1415926D, ref charSpan[0]);
-    Console.WriteLine(charSpan.Slice(0, writtenLength).ToString()); // Output: 3.1415926D
+    Console.WriteLine(charSpan.Slice(0, writtenLength).ToString()); // Output: 3.1415926
 }
 
 {
     // Pointer
     char* pChars = stackalloc char[32];
     var writtenLength = Ryu.d2s_buffered_n(3.1415926D, ref *pChars);
-    Console.WriteLine(new string(pChars, 0, writtenLength)); // Output: 3.1415926D
+    Console.WriteLine(new string(pChars, 0, writtenLength)); // Output: 3.1415926
 }
 
 ```
